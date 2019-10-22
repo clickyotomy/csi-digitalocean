@@ -353,12 +353,18 @@ func (d *Driver) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolume
 		return nil, status.Error(codes.InvalidArgument, "Volume ID not provided")
 	}
 
+	mounter := mount.New("")
+	devPath, _, err := mount.GetDeviceNameFromMount(mounter, req.GetVolumePath())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Unable to get device name for %q: %v", req.GetVolumePath(), err)
+	}
+
 	r := resizefs.NewResizeFs(&mount.SafeFormatAndMount{
-		Interface: mount.New(""),
+		Interface: mounter,
 		Exec:      mount.NewOsExec(),
 	})
-	// todo: find device path
-	if _, err := r.Resize(req.GetVolumePath(), req.GetVolumePath()); err != nil {
+
+	if _, err := r.Resize(devPath, req.GetVolumePath()); err != nil {
 		return nil, status.Errorf(codes.Internal, "Could not resize volume %q (%q):  %v", volumeID, req.GetVolumePath(), err)
 	}
 
